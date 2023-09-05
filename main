@@ -1,0 +1,285 @@
+#include <iostream>
+#include <algorithm>
+#include <thread>  //this_thread::sleep_for()
+#include <chrono>  //chrono::milliseconds()
+#include <vector>
+#include <ctime>
+#include <cstdlib>
+#include <stack>
+
+using namespace std;
+
+int myrandom(int i) { return rand()%i;}
+
+struct Card{
+  char suit;
+  int value;
+  void print(){
+    cout << suit << value;
+  }
+};
+
+class Column{
+private:
+  vector<Card> hiddens;
+  vector<Card> showing; // 9,8,7
+
+public:
+  Column(){
+
+  }
+
+  vector<Card> remove(int numOfCards){
+    vector<Card> Placeholder;
+    if(numOfCards > showing.size()) {
+      numOfCards = showing.size();
+    }
+
+    for(int i = 0; i < numOfCards; i++) {
+      Placeholder.push_back(showing.back());
+      showing.erase(showing.end() - 1); // removes last  card in the showing deck
+    }
+    reverse(Placeholder.begin(), Placeholder.end());
+    return Placeholder;
+  }
+
+  bool add(vector<Card> cards){
+      if(showing.empty()){
+        //cards[0].value;
+        for(Card card : cards){
+          showing.push_back(card);
+        }
+        return true;
+      }
+      char topSuit = showing.back().suit;
+      int topValue = showing.back().value;
+      
+      if(topValue - 1 == cards[0].value){
+        //black card on top
+        if(topSuit == 'S' or topSuit == 'C') {
+          if(cards[0].suit == 'D' or cards[0].suit == 'H'){
+            for(Card card : cards){
+              showing.push_back(card);
+            }
+            return true;
+          }
+        }
+        //red card on top
+        else{
+          if(cards[0].suit == 'S' or cards[0].suit == 'C'){
+            for(Card card : cards){
+              showing.push_back(card);
+            }
+            return true;
+          }
+        }
+      } 
+      return false;
+  }
+
+  void addHidden(vector<Card> cards) {
+    for(Card card: cards) {
+      hiddens.push_back(card);
+    }
+  }
+  
+  //if showing is empty then move top hidden card to showing
+  void reveal() {
+      if(showing.empty() and !hiddens.empty()) {
+        showing.push_back(hiddens.back());
+        hiddens.pop_back();
+      }
+  }
+  //hiddens[0]
+  //hiddens.size()
+  void returned(){
+    for(int i = 0; i < hiddens.size(); i++){
+      cout << "*, ";
+    }
+    
+    for(int i = 0; i < showing.size(); i++) {
+      showing[i].print();
+      cout << ", "; 
+    }
+    
+    cout << endl;
+  }
+};
+
+bool addStack(stack<Card> &suitStack, Card card){
+  if(card.value - 1 == suitStack.top().value) {
+    if(card.suit == suitStack.top().suit) {
+      suitStack.push(card);
+      return true;
+    }
+  }
+  return false;
+}
+
+int main() {
+  srand(time(0));
+  //Suit - char
+  //Value - int
+  vector<Card> deck(52);
+
+  char suits[] = {'C', 'H', 'D', 'S'};
+  int j = 0;
+  for(int i = 0; i < 4; i++){
+    for(int a = 1; a < 14; a++) {
+      deck[j].suit = suits[i];
+      deck[j].value = a;
+      j++;
+    }
+  }
+
+  random_shuffle(deck.begin(), deck.end(), myrandom);
+  
+  Card zeroHeart;
+  zeroHeart.suit = 'H';
+  zeroHeart.value = 0;
+  stack<Card> hearts;
+  hearts.push(zeroHeart);
+
+  Card zeroDiamond;
+  zeroDiamond.suit = 'D';
+  zeroDiamond.value = 0;
+  stack<Card> diamonds;
+  diamonds.push(zeroDiamond);
+
+  Card zeroSpades;
+  zeroSpades.suit = 'S';
+  zeroSpades.value = 0;
+  stack<Card> spades;
+  spades.push(zeroSpades);
+
+  Card zeroClubs;
+  zeroClubs.suit = 'C';
+  zeroClubs.value = 0;
+  stack<Card> clubs;
+  clubs.push(zeroClubs);
+
+  Column columns[7];
+
+  int placeInDeck = 0;
+  //set back to 0 when place >= sideDeck size
+  
+  //Populates the columns with the initial cards
+  vector<Card> transfer;
+  for(int b = 0; b < 7; b++){
+    for(int i = 0; i <= b; i++) {
+      transfer.push_back(deck.front());
+      deck.erase(deck.begin());
+    }
+    columns[b].addHidden(transfer);
+    transfer.clear();
+  }
+
+
+  while(true) {
+
+  for(int b = 0; b < 7; b++){
+    columns[b].reveal();
+    cout << b + 1 << ": ";
+    columns[b].returned();
+  }
+
+  cout << endl << zeroHeart.suit << ": " << hearts.top().value;
+  cout << endl << zeroClubs.suit << ": " << clubs.top().value;
+  cout << endl << zeroDiamond.suit << ": " << diamonds.top().value;
+  cout << endl << zeroSpades.suit << ": " << spades.top().value << endl;
+
+
+
+  cout << endl << "Deck: "; 
+  deck[placeInDeck].print();
+  cout << endl;
+
+  int i;  
+
+  cout << "1: Draw from Deck"            << endl 
+       << "2: Move from Deck to Column"  << endl 
+       << "3: Move between columns"      << endl 
+       << "4: Move from Column to stack" << endl;
+
+  cin >> i;
+  switch(i){
+    case 1 : {
+      //code to draw from deck
+      placeInDeck = placeInDeck + 1;
+      if(placeInDeck >= deck.size()){
+        placeInDeck = 0;
+      }
+      break;
+    }
+    case 2 :{
+      //Move from Deck to Column
+      int c;
+      cout << "Which Column: " << endl;
+      cin >> c;
+      vector<Card> transfer;
+      transfer.push_back(deck[placeInDeck]);
+      // 13 cannot be added to empty column
+      if(columns[c - 1].add(transfer) == true) {
+        deck.erase(deck.begin() + placeInDeck);
+      }
+      transfer.clear();
+      break;
+    }
+    case 3 : {
+      //Move between columns
+      int c;
+      int i;
+      int f;
+      //Choose a column to take from
+      cout << "Column 1:" << endl;
+      cin >> c;
+      
+      //choose a column to put them in
+      cout << "Column 2:" << endl;
+      cin >> i;
+      //remove those cards
+      cout << "How many cards did you want to remove from Column 1: " << endl;
+      cin >> f;
+      vector<Card> transfer;
+      transfer = columns[c - 1].remove(f);
+      //try to add them
+      //if not possible then put them back
+      if(columns[i - 1].add(transfer) == false) {
+        columns[c - 1].add(transfer);
+      }
+      break;
+    }
+    case 4 :{
+      //Move from Column to stack
+      int c;
+      cout << "Which Column: " << endl;
+      cin >> c;
+        Card tempCard = columns[c - 1].remove(1)[0];
+        if(addStack(hearts, tempCard) == true) {}
+        else if(addStack(spades, tempCard) == true) {}
+        else if(addStack(clubs, tempCard) == true) {}else if(addStack(diamonds, tempCard) == true){}else {
+          vector<Card> temp{tempCard};
+          columns[c - 1].add(temp);
+        }
+      break;
+    }
+       case 5:{
+      int c;
+      cout << "Which Stack: " << endl;
+      cin >> c;
+        Card tempCard = columns[c - 1].remove(1)[0];
+        if(addStack(hearts, tempCard) == true) {}
+        else if(addStack(spades, tempCard) == true) {}
+        else if(addStack(clubs, tempCard) == true) {}else if(addStack(diamonds, tempCard) == true){}else {
+          vector<Card> temp{tempCard};
+          columns[c - 1].add(temp);
+    }
+    break;
+  }
+  default:
+  cout << "incorrect choice" << endl;
+  cout << endl;
+  
+  }   
+} 
+}
